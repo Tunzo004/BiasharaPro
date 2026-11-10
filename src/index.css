@@ -1,27 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   font-family: Inter, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --bg-1: #020817;
+  --bg-2: #0f172a;
+  --bg-3: #111827;
+  --glass: rgba(15, 23, 42, 0.52);
+  --glass-border: rgba(148, 163, 184, 0.16);
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --primary: #60a5fa;
+  --secondary: #8b5cf6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #fb7185;
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 html {
   scroll-behavior: smooth;
+  background: var(--bg-1);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.18), transparent 35%),
+    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 40%, var(--bg-3) 100%);
+  color: var(--text);
 }
 
 button, input, select, textarea {
@@ -32,14 +48,39 @@ button, input, select, textarea {
   box-sizing: border-box;
 }
 
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(96, 165, 250, 0.35);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.8);
+  background: rgba(148, 163, 184, 0.7);
   border-radius: 999px;
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.58));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.gradient-button {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 35%, #8b5cf6 100%);
+  box-shadow: 0 18px 30px rgba(59, 130, 246, 0.28);
 }
 
 @media print {
