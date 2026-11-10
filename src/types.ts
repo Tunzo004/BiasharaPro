@@ -1,86 +1,72 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+export type Role = 'owner' | 'seller';
 
-:root {
-  font-family: Inter, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --bg-1: #020817;
-  --bg-2: #0f172a;
-  --bg-3: #111827;
-  --glass: rgba(15, 23, 42, 0.52);
-  --glass-border: rgba(148, 163, 184, 0.16);
-  --text: #e2e8f0;
-  --text-soft: #cbd5e1;
-  --muted: #94a3b8;
-  --primary: #60a5fa;
-  --secondary: #8b5cf6;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #fb7185;
-}
+export type Business = {
+  name: string;
+  businessId: string;
+  industry: string;
+  email: string;
+  address: string;
+  phone: string;
+};
 
-html {
-  scroll-behavior: smooth;
-  background: var(--bg-1);
-}
+export type Product = {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  unitCost: number;
+  unitPrice: number;
+  openingStock: number;
+  currentStock: number;
+  lowStockThreshold: number;
+};
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.18), transparent 35%),
-    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 40%, var(--bg-3) 100%);
-  color: var(--text);
-}
+export type SaleItem = {
+  id: string;
+  productId: string;
+  productName: string;
+  code: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  sellerName: string;
+  notes: string;
+  date: string;
+};
 
-button, input, select, textarea {
-  font: inherit;
-}
+export type SaleRecord = {
+  id: string;
+  sellerName: string;
+  date: string;
+  total: number;
+  notes: string;
+  items: SaleItem[];
+};
 
-* {
-  box-sizing: border-box;
-}
+export type PurchaseItem = {
+  id: string;
+  productName: string;
+  quantity: number;
+  unitCost: number;
+  total: number;
+  notes: string;
+  date: string;
+  supplierName: string;
+};
 
-#root {
-  min-height: 100vh;
-}
+export type PurchaseRecord = {
+  id: string;
+  supplierName: string;
+  date: string;
+  total: number;
+  notes: string;
+  items: PurchaseItem[];
+};
 
-::selection {
-  background: rgba(96, 165, 250, 0.35);
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.3);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.7);
-  border-radius: 999px;
-}
-
-.glass-panel {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.58));
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-@media print {
-  .no-print {
-    display: none !important;
-  }
-}
+export type ExpenseRecord = {
+  id: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+};

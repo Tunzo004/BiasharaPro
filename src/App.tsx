@@ -1,114 +1,130 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+import { useMemo, useState } from 'react';
+import { BarChart3, Boxes, CreditCard, DollarSign, FileText, LayoutDashboard, LogOut, Package, Plus, Settings, ShoppingCart, TrendingUp, Truck } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { Product, SaleRecord } from './types';
+import { isSupabaseConfigured } from './lib/supabase';
 
-:root {
-  font-family: Inter, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --bg-1: #020817;
-  --bg-2: #0f172a;
-  --bg-3: #111827;
-  --glass: rgba(15, 23, 42, 0.52);
-  --glass-strong: rgba(15, 23, 42, 0.78);
-  --glass-border: rgba(148, 163, 184, 0.16);
-  --surface: rgba(15, 23, 42, 0.7);
-  --surface-soft: rgba(30, 41, 59, 0.72);
-  --text: #e2e8f0;
-  --text-soft: #cbd5e1;
-  --muted: #94a3b8;
-  --primary: #60a5fa;
-  --primary-strong: #3b82f6;
-  --secondary: #8b5cf6;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #fb7185;
-  --shadow: rgba(15, 23, 42, 0.45);
-}
+const money = new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 });
+const today = new Date().toISOString().slice(0, 10);
 
-html {
-  scroll-behavior: smooth;
-  background: var(--bg-1);
-}
+const initialProducts: Product[] = [
+  { id: 'p1', name: 'Sugar 5kg', code: 'SUG-001', category: 'Groceries', unitCost: 520, unitPrice: 650, openingStock: 50, currentStock: 42, lowStockThreshold: 10 },
+  { id: 'p2', name: 'Rice 5kg', code: 'RIC-002', category: 'Groceries', unitCost: 690, unitPrice: 850, openingStock: 40, currentStock: 31, lowStockThreshold: 12 },
+  { id: 'p3', name: 'Toothpaste', code: 'TOO-003', category: 'Personal care', unitCost: 180, unitPrice: 260, openingStock: 60, currentStock: 8, lowStockThreshold: 12 },
+];
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.18), transparent 35%),
-    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 40%, var(--bg-3) 100%);
-  color: var(--text);
-}
+const initialSales: SaleRecord[] = [
+  {
+    id: 's1', sellerName: 'Grace M.', date: today, total: 3060, notes: 'Walk-in sales',
+    items: [{ id: 'si1', productId: 'p1', productName: 'Sugar 5kg', code: 'SUG-001', quantity: 3, unitPrice: 650, total: 1950, sellerName: 'Grace M.', notes: '', date: today }],
+  },
+];
 
-button, input, select, textarea {
-  font: inherit;
-}
+const nav = [
+  { name: 'Overview', icon: LayoutDashboard },
+  { name: 'Sales', icon: ShoppingCart },
+  { name: 'Purchases', icon: Truck },
+  { name: 'Inventory', icon: Boxes },
+  { name: 'Reports', icon: FileText },
+  { name: 'Settings', icon: Settings },
+] as const;
 
-* {
-  box-sizing: border-box;
-}
+type TabName = (typeof nav)[number]['name'];
 
-#root {
-  min-height: 100vh;
-}
+export default function App() {
+  const [active, setActive] = useState<TabName>('Overview');
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [sales, setSales] = useState<SaleRecord[]>(initialSales);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedProduct, setSelectedProduct] = useState(initialProducts[0].id);
+  const [notice, setNotice] = useState('');
+  const [dark, setDark] = useState(true);
 
-::selection {
-  background: rgba(96, 165, 250, 0.35);
-}
+  const totalSales = useMemo(() => sales.reduce((sum, sale) => sum + sale.total, 0), [sales]);
+  const lowStock = products.filter((product) => product.currentStock <= product.lowStockThreshold).length;
+  const selected = products.find((product) => product.id === selectedProduct) ?? products[0];
+  const chartData = useMemo(() => sales.slice(-7).map((sale) => ({ day: sale.date.slice(5), sales: sale.total })), [sales]);
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+  const saveSale = () => {
+    if (!selected || quantity < 1 || !Number.isInteger(quantity)) {
+      setNotice('Please choose a valid product and quantity.');
+      return;
+    }
+    if (selected.currentStock < quantity) {
+      setNotice('Insufficient stock for the selected product.');
+      return;
+    }
 
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.3);
-}
+    const total = selected.unitPrice * quantity;
+    const item = {
+      id: crypto.randomUUID(), productId: selected.id, productName: selected.name, code: selected.code,
+      quantity, unitPrice: selected.unitPrice, total, sellerName: 'Demo user', notes: '', date: today,
+    };
+    setSales((previous) => [{
+      id: crypto.randomUUID(), sellerName: 'Demo user', date: today, total, notes: 'Demo entry', items: [item],
+    }, ...previous]);
+    setProducts((previous) => previous.map((product) => product.id === selected.id
+      ? { ...product, currentStock: product.currentStock - quantity }
+      : product));
+    setNotice('Sale added in demo mode. Connect Supabase to persist this securely.');
+  };
 
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.7);
-  border-radius: 999px;
-}
+  const card = 'glass-panel rounded-3xl p-5';
+  const input = 'w-full rounded-xl border border-slate-600/70 bg-slate-950/40 px-3 py-2 text-slate-100 outline-none focus:border-blue-400';
 
-.glass-panel {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.58));
-  border: 1px solid var(--glass-border);
-  box-shadow:
-    0 20px 45px rgba(15, 23, 42, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
+  return (
+    <div className={`${dark ? 'dark' : ''} min-h-screen text-slate-100`}>
+      <div className="min-h-screen bg-slate-950/20">
+        <header className="no-print sticky top-0 z-10 border-b border-white/10 bg-slate-950/55 px-4 py-4 backdrop-blur-xl sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-violet-600 font-bold text-white shadow-lg">B</div>
+              <div><h1 className="text-xl font-semibold text-white">BiasharaPro</h1><p className="text-xs text-slate-400">Business management</p></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setDark((value) => !value)} className="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-200">{dark ? 'Dark' : 'Light'}</button>
+              <button onClick={() => setNotice('Demo logout: Supabase Auth is not connected yet.')} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-200"><LogOut size={16}/><span className="hidden sm:inline">Logout</span></button>
+            </div>
+          </div>
+        </header>
 
-.glass-soft {
-  background: rgba(15, 23, 42, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
+        {!isSupabaseConfigured && <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6"><div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">Demo mode: Supabase environment variables are not set. Data entered here is browser-only and not persisted to the cloud.</div></div>}
+        {notice && <div role="status" className="mx-auto mt-3 max-w-7xl px-4 text-sm text-sky-200 sm:px-6">{notice}</div>}
 
-.gradient-button {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 35%, #8b5cf6 100%);
-  box-shadow: 0 18px 30px rgba(59, 130, 246, 0.28);
-}
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 xl:flex-row">
+          <aside className={`${card} no-print h-fit w-full xl:max-w-60`}>
+            <nav className="grid grid-cols-2 gap-2 xl:grid-cols-1">
+              {nav.map(({ name, icon: Icon }) => <button key={name} onClick={() => setActive(name)} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm ${active === name ? 'bg-blue-500/20 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><Icon size={17}/>{name}</button>)}
+            </nav>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/30 p-4"><p className="text-xs uppercase tracking-widest text-slate-400">Business</p><p className="mt-2 font-semibold text-white">My Business</p><p className="text-sm text-slate-400">Demo mode</p></div>
+          </aside>
 
-.gradient-button-emerald {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  box-shadow: 0 18px 30px rgba(16, 185, 129, 0.25);
-}
+          <main className="min-w-0 flex-1 space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-slate-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p><h2 className="text-2xl font-semibold text-white">{active}</h2></div><span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">OWNER · DEMO</span></div>
 
-.soft-ring {
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
-}
+            {active === 'Overview' && <>
+              <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                {[
+                  { title: 'Total sales', value: money.format(totalSales), Icon: DollarSign, color: 'text-emerald-300' },
+                  { title: 'Products', value: String(products.length), Icon: Boxes, color: 'text-sky-300' },
+                  { title: 'Low stock', value: String(lowStock), Icon: Package, color: 'text-amber-300' },
+                  { title: 'Sales records', value: String(sales.length), Icon: TrendingUp, color: 'text-violet-300' },
+                ].map(({ title, value, Icon, color }) => <article key={title} className={card}><div className="flex items-center justify-between text-sm text-slate-400"><span>{title}</span><Icon className={color} size={19}/></div><p className="mt-4 text-2xl font-semibold text-white">{value}</p></article>)}
+              </section>
+              <section className="grid gap-5 xl:grid-cols-2">
+                <article className={card}><h3 className="mb-4 font-semibold text-white">Sales trend</h3><div className="h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><CartesianGrid stroke="rgba(148,163,184,.15)"/><XAxis dataKey="day" stroke="#94a3b8"/><YAxis stroke="#94a3b8"/><Tooltip/><Area dataKey="sales" stroke="#60a5fa" fill="#60a5fa" fillOpacity={0.25}/></AreaChart></ResponsiveContainer></div></article>
+                <article className={card}><h3 className="mb-4 font-semibold text-white">Current inventory</h3><div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={products}><CartesianGrid stroke="rgba(148,163,184,.15)"/><XAxis dataKey="name" stroke="#94a3b8"/><YAxis stroke="#94a3b8"/><Tooltip/><Bar dataKey="currentStock" fill="#8b5cf6" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div></article>
+              </section>
+            </>}
 
-@media print {
-  .no-print {
-    display: none !important;
-  }
+            {active === 'Sales' && <section className={`${card} space-y-4`}><div><h3 className="font-semibold text-white">Record a sale</h3><p className="text-sm text-slate-400">Demo-only entry until Supabase operations are connected.</p></div><div className="grid gap-3 sm:grid-cols-[1fr_150px_auto]"><select className={input} value={selectedProduct} onChange={(event) => setSelectedProduct(event.target.value)}>{products.map((product) => <option key={product.id} value={product.id}>{product.name} · stock {product.currentStock}</option>)}</select><input className={input} type="number" min="1" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))}/><button onClick={saveSale} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 px-4 py-2 font-medium text-white"><Plus size={16}/> Add sale</button></div><p className="text-sm text-slate-300">Line total: {money.format((selected?.unitPrice ?? 0) * quantity)}</p><div className="divide-y divide-white/10">{sales.map((sale) => <div key={sale.id} className="flex justify-between gap-3 py-3 text-sm"><span className="text-slate-300">{sale.date} · {sale.sellerName}</span><strong className="text-white">{money.format(sale.total)}</strong></div>)}</div></section>}
+
+            {active === 'Inventory' && <section className={`${card} overflow-x-auto`}><h3 className="mb-4 font-semibold text-white">Inventory</h3><table className="w-full min-w-[600px] text-left text-sm"><thead className="text-slate-400"><tr>{['Product','Code','Category','Stock','Price','Status'].map((head) => <th className="p-3" key={head}>{head}</th>)}</tr></thead><tbody>{products.map((product) => <tr className="border-t border-white/10" key={product.id}><td className="p-3 text-white">{product.name}</td><td className="p-3">{product.code}</td><td className="p-3">{product.category}</td><td className="p-3">{product.currentStock}</td><td className="p-3">{money.format(product.unitPrice)}</td><td className="p-3">{product.currentStock <= product.lowStockThreshold ? 'Low stock' : 'In stock'}</td></tr>)}</tbody></table></section>}
+
+            {['Purchases', 'Reports', 'Settings'].includes(active) && <section className={card}><h3 className="font-semibold text-white">{active}</h3><p className="mt-2 text-sm text-slate-400">This area is currently a demo placeholder until Supabase-backed modules are connected.</p></section>}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
 }
