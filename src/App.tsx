@@ -3,6 +3,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { ArrowDownToLine, BarChart3, Boxes, CreditCard, FileText, LayoutDashboard, LogOut, Plus, Receipt, Settings, ShoppingCart, Trash2, TrendingUp, Truck } from 'lucide-react';
 import type { Product, PurchaseItem, PurchaseRecord, SaleItem, SaleRecord } from './types';
 import { isSupabaseConfigured } from './lib/supabase';
+import { signInBusinessOwner, signOutBusinessOwner, signUpBusinessOwner } from './lib/tenant';
 
 const CURRENCIES = {
   TZS: { locale: 'en-TZ', code: 'TZS' },
@@ -10,7 +11,7 @@ const CURRENCIES = {
 } as const;
 
 type CurrencyCode = keyof typeof CURRENCIES;
-type Plan = 'Starter' | 'Pro' | 'Scale';
+type Plan = 'starter' | 'pro' | 'scale';
 type BusinessStatus = 'Active' | 'Trial' | 'Paused';
 
 type BusinessRecord = {
@@ -38,15 +39,15 @@ const initialSales: SaleRecord[] = [
 ];
 
 const initialBusinesses: BusinessRecord[] = [
-  { id: 'b1', name: 'Bora Mart', industry: 'Retail', ownerEmail: 'owner@boramart.co', plan: 'Pro', status: 'Active', monthlyRevenue: 90000, users: 12 },
-  { id: 'b2', name: 'Mikono Hardware', industry: 'Hardware', ownerEmail: 'admin@mikonohardware.com', plan: 'Scale', status: 'Active', monthlyRevenue: 145000, users: 18 },
-  { id: 'b3', name: 'Kiboko Pharmacy', industry: 'Pharmacy', ownerEmail: 'ops@kibokopharmacy.co.tz', plan: 'Starter', status: 'Trial', monthlyRevenue: 35000, users: 4 },
+  { id: 'b1', name: 'Bora Mart', industry: 'Retail', ownerEmail: 'owner@boramart.co', plan: 'pro', status: 'Active', monthlyRevenue: 90000, users: 12 },
+  { id: 'b2', name: 'Mikono Hardware', industry: 'Hardware', ownerEmail: 'admin@mikonohardware.com', plan: 'scale', status: 'Active', monthlyRevenue: 145000, users: 18 },
+  { id: 'b3', name: 'Kiboko Pharmacy', industry: 'Pharmacy', ownerEmail: 'ops@kibokopharmacy.co.tz', plan: 'starter', status: 'Trial', monthlyRevenue: 35000, users: 4 },
 ];
 
 const planRevenueMap: Record<Plan, number> = {
-  Starter: 25000,
-  Pro: 70000,
-  Scale: 150000,
+  starter: 25000,
+  pro: 70000,
+  scale: 150000,
 };
 
 const newSaleRow = (): SaleItem => ({
@@ -95,11 +96,22 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [currencyCode, setCurrencyCode] = useState<CurrencyCode>('TZS');
   const [businesses, setBusinesses] = useState<BusinessRecord[]>(initialBusinesses);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [authForm, setAuthForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    businessName: '',
+    industry: 'Retail',
+    plan: 'starter' as Plan,
+  });
   const [businessForm, setBusinessForm] = useState({
     name: '',
     industry: 'Retail',
     ownerEmail: '',
-    plan: 'Starter' as Plan,
+    plan: 'starter' as Plan,
   });
 
   const money = useMemo(
@@ -224,16 +236,203 @@ export default function App() {
       plan: businessForm.plan,
       status: 'Trial',
       monthlyRevenue: planRevenueMap[businessForm.plan],
-      users: businessForm.plan === 'Starter' ? 3 : businessForm.plan === 'Pro' ? 8 : 15,
+      users: businessForm.plan === 'starter' ? 3 : businessForm.plan === 'pro' ? 8 : 15,
     };
 
     setBusinesses((previous) => [record, ...previous]);
-    setBusinessForm({ name: '', industry: 'Retail', ownerEmail: '', plan: 'Starter' });
+    setBusinessForm({ name: '', industry: 'Retail', ownerEmail: '', plan: 'starter' });
     setNotice(`Welcome ${record.name}! Their trial workspace is now active.`);
+  };
+
+  const handleAuthSubmit = async () => {
+    setAuthLoading(true);
+    try {
+      if (authMode === 'signup') {
+        const result = await signUpBusinessOwner({
+          fullName: authForm.fullName,
+          email: authForm.email,
+          password: authForm.password,
+          businessName: authForm.businessName,
+          industry: authForm.industry,
+          plan: authForm.plan,
+        });
+        setNotice(result.message || 'Business account created.');
+      } else {
+        const result = await signInBusinessOwner({
+          email: authForm.email,
+          password: authForm.password,
+        });
+        setNotice(result.message || 'Logged in successfully.');
+        setSignedIn(true);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed.';
+      setNotice(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const result = await signOutBusinessOwner();
+      setNotice(result.message || 'Signed out.');
+      setSignedIn(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign out failed.';
+      setNotice(message);
+    }
   };
 
   const card = 'liquid-card rounded-3xl p-5 sm:p-6';
   const field = 'sheet-input w-full rounded-lg px-3 py-2.5 text-sm';
+
+  if (!signedIn) {
+    return (
+      <div className="min-h-screen bg-[#f5f8ff] p-4 text-slate-800 sm:p-8">
+        <div className="mx-auto max-w-6xl rounded-[32px] border border-white/70 bg-white/50 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <section className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/80 p-6 sm:p-8">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="brand-mark">B</div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">SaaS platform</p>
+                  <h1 className="text-3xl font-bold text-[#102b55]">BiasharaPro</h1>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h2 className="text-4xl font-bold tracking-tight text-[#102b55]">Start a new business workspace</h2>
+                <p className="max-w-xl text-base text-slate-600">
+                  Create a tenant account for your business, choose a plan, and start managing sales, inventory and customers in one multi-tenant SaaS workspace.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: 'Business onboarding', value: '1 click' },
+                  { label: 'Multi-tenant SaaS', value: 'Ready' },
+                  { label: 'Trial to paid plan', value: 'Built in' },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-blue-100 bg-white/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                    <p className="mt-2 text-xl font-bold text-[#102b55]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex gap-2 rounded-2xl bg-slate-100 p-1">
+                <button
+                  className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold ${authMode === 'signin' ? 'bg-white text-[#102b55] shadow-sm' : 'text-slate-500'}`}
+                  onClick={() => setAuthMode('signin')}
+                >
+                  Sign in
+                </button>
+                <button
+                  className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold ${authMode === 'signup' ? 'bg-white text-[#102b55] shadow-sm' : 'text-slate-500'}`}
+                  onClick={() => setAuthMode('signup')}
+                >
+                  Sign up
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {authMode === 'signup' && (
+                  <>
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-slate-600">Full name</span>
+                      <input
+                        className={field}
+                        value={authForm.fullName}
+                        onChange={(event) => setAuthForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                        placeholder="John Mwaruwa"
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-slate-600">Business name</span>
+                      <input
+                        className={field}
+                        value={authForm.businessName}
+                        onChange={(event) => setAuthForm((prev) => ({ ...prev, businessName: event.target.value }))}
+                        placeholder="Juma Traders"
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-sm font-medium text-slate-600">Industry</span>
+                      <select
+                        className={field}
+                        value={authForm.industry}
+                        onChange={(event) => setAuthForm((prev) => ({ ...prev, industry: event.target.value }))}
+                      >
+                        <option value="Retail">Retail</option>
+                        <option value="Hardware">Hardware</option>
+                        <option value="Pharmacy">Pharmacy</option>
+                        <option value="Restaurant">Restaurant</option>
+                        <option value="Wholesale">Wholesale</option>
+                      </select>
+                    </label>
+                  </>
+                )}
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-slate-600">Email</span>
+                  <input
+                    className={field}
+                    type="email"
+                    value={authForm.email}
+                    onChange={(event) => setAuthForm((prev) => ({ ...prev, email: event.target.value }))}
+                    placeholder="owner@business.com"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-slate-600">Password</span>
+                  <input
+                    className={field}
+                    type="password"
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm((prev) => ({ ...prev, password: event.target.value }))}
+                    placeholder="••••••••"
+                  />
+                </label>
+
+                {authMode === 'signup' && (
+                  <label className="block space-y-1">
+                    <span className="text-sm font-medium text-slate-600">Plan</span>
+                    <select
+                      className={field}
+                      value={authForm.plan}
+                      onChange={(event) => setAuthForm((prev) => ({ ...prev, plan: event.target.value as Plan }))}
+                    >
+                      <option value="starter">Starter</option>
+                      <option value="pro">Pro</option>
+                      <option value="scale">Scale</option>
+                    </select>
+                  </label>
+                )}
+
+                {notice && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">{notice}</div>
+                )}
+
+                <button
+                  className="primary-button mt-2 w-full justify-center"
+                  onClick={handleAuthSubmit}
+                  disabled={authLoading}
+                >
+                  {authLoading ? 'Please wait...' : authMode === 'signup' ? 'Create business account' : 'Sign in'}
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-slate-800">
@@ -252,8 +451,9 @@ export default function App() {
 
           <div className="flex items-center gap-2">
             <span className="hidden rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 sm:inline-flex">OWNER · DEMO</span>
-            <button onClick={() => setNotice('Demo logout: Supabase auth is not connected yet.')} className="icon-button" aria-label="Logout">
+            <button onClick={handleSignOut} className="icon-button" aria-label="Logout">
               <LogOut size={17} />
+              Sign out
             </button>
           </div>
         </div>
@@ -300,7 +500,7 @@ export default function App() {
                 </p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#102b55] sm:text-3xl">{tab}</h2>
               </div>
-              <button className="secondary-button" onClick={() => setNotice('Export is ready for your demo report.')}>
+              <button className="secondary-button" onClick={() => setNotice('Export is ready for your demo report.') }>
                 <ArrowDownToLine size={16} />
                 Export
               </button>
@@ -665,9 +865,9 @@ export default function App() {
                       <label className="block space-y-1">
                         <span className="text-sm font-medium text-slate-600">Plan</span>
                         <select className={field} value={businessForm.plan} onChange={(event) => setBusinessForm((prev) => ({ ...prev, plan: event.target.value as Plan }))}>
-                          <option value="Starter">Starter</option>
-                          <option value="Pro">Pro</option>
-                          <option value="Scale">Scale</option>
+                          <option value="starter">Starter</option>
+                          <option value="pro">Pro</option>
+                          <option value="scale">Scale</option>
                         </select>
                       </label>
 
@@ -697,7 +897,7 @@ export default function App() {
                               <td className="font-semibold text-[#102b55]">{business.name}</td>
                               <td>{business.industry}</td>
                               <td>{business.plan}</td>
-                              <td><span className={business.status === 'Active' ? 'status-ok' : business.status === 'Trial' ? 'status-low' : 'status-low'}>{business.status}</span></td>
+                              <td><span className={business.status === 'Active' ? 'status-ok' : 'status-low'}>{business.status}</span></td>
                               <td>{money.format(business.monthlyRevenue)}</td>
                             </tr>
                           ))}
